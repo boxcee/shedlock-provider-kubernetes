@@ -23,8 +23,8 @@ publishing {
             name = "GitHubPackages"
             url = uri("https://maven.pkg.github.com/boxcee/shedlock-provider-kubernetes")
             credentials {
-                username = "boxcee"
-                password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
             }
         }
     }
