@@ -1,7 +1,11 @@
 name: Release
 
 on:
-  - push
+  push:
+    branches:
+      - main
+
+concurrency: ci-${{ github.ref }}-release
 
 jobs:
   release:

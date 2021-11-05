@@ -3,6 +3,9 @@
  */
 package shedlock.provider.kubernetes;
 
+import com.anarsoft.vmlens.concurrent.junit.ConcurrentTestRunner;
+import com.anarsoft.vmlens.concurrent.junit.ThreadCount;
+import com.google.common.primitives.Ints;
 import io.fabric8.kubernetes.client.NamespacedKubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
@@ -11,13 +14,16 @@ import net.javacrumbs.shedlock.core.SimpleLock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.runner.RunWith;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
+@RunWith(ConcurrentTestRunner.class)
 @EnableKubernetesMockClient(crud = true)
 class KubernetesLockProviderTest {
 
@@ -27,26 +33,30 @@ class KubernetesLockProviderTest {
   @BeforeEach
   void beforeEach() {
     final NamespacedKubernetesClient client = server.createClient();
+    //final NamespacedKubernetesClient client = new MockNamespacedClient();
     lockProvider = new KubernetesLockProvider(client, "hostname");
   }
 
   @Test
+  @ThreadCount(10)
   void simpleLock() {
-    /*
-     * Given
-     */
-    String lockName = UUID.randomUUID().toString();
-    LockConfiguration lockConfiguration = getLockConfiguration(lockName, 0L, 0L);
+    IntStream.range(0, 10).forEach(i -> {
+      /*
+       * Given
+       */
+      String lockName = UUID.randomUUID().toString();
+      LockConfiguration lockConfiguration = getLockConfiguration(lockName, 10L, 5L);
 
-    /*
-     * When
-     */
-    final Optional<SimpleLock> lock = lockProvider.lock(lockConfiguration);
+      /*
+       * When
+       */
+      final Optional<SimpleLock> lock = lockProvider.lock(lockConfiguration);
 
-    /*
-     * Then
-     */
-    Assertions.assertTrue(lock.isPresent());
+      /*
+       * Then
+       */
+      Assertions.assertTrue(lock.isPresent());
+    });
   }
 
   @Test

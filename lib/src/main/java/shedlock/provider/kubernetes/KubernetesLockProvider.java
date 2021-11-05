@@ -31,7 +31,7 @@ public class KubernetesLockProvider implements LockProvider {
 
   public KubernetesLockProvider(@NonNull NamespacedKubernetesClient client, String hostname) {
     if (hostname == null || hostname.trim().isEmpty()) {
-      throw new LockException("'HOSTNAME' not set. Are you sure you are running in a k8s environment?");
+      throw new IllegalArgumentException("'HOSTNAME' not set. Are you sure you are running in a k8s environment?");
     }
     this.client = client;
     this.hostname = hostname;
@@ -59,25 +59,22 @@ public class KubernetesLockProvider implements LockProvider {
 
     // ConfigMap does not exist. Lock is not held by any process.
     if (existingConfigMap == null) {
-      ConfigMap newConfigMap = buildConfigMap(lockConfiguration, now);
-      try {
-        client.configMaps().create(newConfigMap);
-      } catch (KubernetesClientException kce) {
-        // ConfigMap was created in the meantime. Some other process holds the lock. Return empty.
-        return Optional.empty();
-      }
-      return Optional.of(new KubernetesLock(client, lockConfiguration, now));
+      return createNewConfigMap(lockConfiguration, now);
     }
 
     if (canBeLocked(existingConfigMap, now)) {
-      ConfigMap newConfigMap = buildConfigMap(lockConfiguration, now);
       try {
-        // Replace existing configMap.
-        client.configMaps().withName(configMapName).replace(newConfigMap);
+        // Delete existing configMap.
+        client.configMaps().withName(configMapName).delete();
       } catch (KubernetesClientException kce) {
-        throw new LockException("Unexpected error occurred", kce);
+        if (kce.getCode() == 404) {
+          // ConfigMap was deleted in the meantime. Some other process holds the lock. Return empty.
+          return Optional.empty();
+        } else {
+          throw new LockException("Unexpected error occurred", kce);
+        }
       }
-      return Optional.of(new KubernetesLock(client, lockConfiguration, now));
+      return createNewConfigMap(lockConfiguration, now);
     }
 
     return Optional.empty();
@@ -101,5 +98,20 @@ public class KubernetesLockProvider implements LockProvider {
         .addToAnnotations(LOCK_AT_MOST_FOR, String.valueOf(lockConfiguration.getLockAtMostFor().toMillis()))
         .endMetadata()
         .build();
+  }
+
+  private Optional<SimpleLock> createNewConfigMap(LockConfiguration lockConfiguration, LocalDateTime now) {
+    ConfigMap newConfigMap = buildConfigMap(lockConfiguration, now);
+    try {
+      client.configMaps().create(newConfigMap);
+    } catch (KubernetesClientException kce) {
+      if (kce.getCode() == 409) {
+        // ConfigMap was created in the meantime. Some other process holds the lock. Return empty.
+        return Optional.empty();
+      } else {
+        throw new LockException("Unexpected error occurred", kce);
+      }
+    }
+    return Optional.of(new KubernetesLock(client, lockConfiguration, now));
   }
 }

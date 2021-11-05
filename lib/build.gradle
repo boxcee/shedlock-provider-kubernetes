@@ -15,6 +15,7 @@ plugins {
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
+    mavenLocal()
 }
 
 publishing {
@@ -32,7 +33,6 @@ publishing {
         gpr(MavenPublication) {
             groupId = 'com.github.boxcee'
             artifactId = 'shedlock-provider-kubernetes'
-
             from(components.java)
         }
     }
@@ -42,6 +42,7 @@ dependencies {
     // Use JUnit Jupiter for testing.
     testImplementation 'org.junit.jupiter:junit-jupiter:5.7.2'
     testImplementation 'io.fabric8:kubernetes-server-mock:5.9.0'
+    testImplementation 'com.vmlens:concurrent-junit:1.0.2'
 
     // This dependency is exported to consumers, that is to say found on their compile classpath.
     api 'io.fabric8:kubernetes-client:5.9.0'
